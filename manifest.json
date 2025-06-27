@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Note Taker",
+  "version": "1.0",
+  "description": "A simple note-taking extension.",
+  "permissions": [
+    "storage",
+    "downloads"
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
