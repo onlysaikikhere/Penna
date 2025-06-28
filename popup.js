@@ -1,56 +1,82 @@
 document.addEventListener('DOMContentLoaded', function() {
   const editor = document.getElementById('editor');
-  const saveNoteBtn = document.getElementById('save-note');
+  const saveNoteTxtBtn = document.getElementById('save-note-txt');
+  const saveNotePdfBtn = document.getElementById('save-note-pdf');
   const alignLeftBtn = document.getElementById('align-left');
   const alignCenterBtn = document.getElementById('align-center');
   const alignRightBtn = document.getElementById('align-right');
-  const themeToggle = document.getElementById('theme-toggle');
   const strikethroughBtn = document.getElementById('strikethrough');
   const underlineBtn = document.getElementById('underline');
+  const backgroundColorPicker = document.getElementById('background-color-picker');
+  const textColorPicker = document.getElementById('text-color-picker');
+  const floatingBtn = document.getElementById('floating-btn');
+  const floatingToolbar = document.getElementById('floating-toolbar');
   const dateElement = document.querySelector('.date');
   const titleElement = document.querySelector('.title');
 
   // Set current date
   dateElement.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
-  // Load saved theme preference
-  chrome.storage.sync.get(['darkMode'], function(result) {
-    if (result.darkMode) {
-      document.body.classList.add('dark-mode');
-      const icon = themeToggle.querySelector('i');
-      icon.classList.remove('fa-moon');
-      icon.classList.add('fa-sun');
+  // Load saved colors
+  chrome.storage.sync.get(['customBackgroundColor', 'customTextColor'], function(result) {
+    if (result.customBackgroundColor) {
+      backgroundColorPicker.value = result.customBackgroundColor;
+      document.body.style.backgroundColor = result.customBackgroundColor;
+      editor.style.backgroundColor = result.customBackgroundColor;
+    }
+    if (result.customTextColor) {
+      textColorPicker.value = result.customTextColor;
+      document.body.style.color = result.customTextColor;
+      titleElement.style.color = result.customTextColor;
+      dateElement.style.color = result.customTextColor;
+      editor.style.setProperty('color', result.customTextColor, 'important');
     }
   });
 
-  themeToggle.addEventListener('click', function() {
-    document.body.classList.toggle('dark-mode');
-    const icon = themeToggle.querySelector('i');
-    const isDarkMode = document.body.classList.contains('dark-mode');
-    
-    if (isDarkMode) {
-      icon.classList.remove('fa-moon');
-      icon.classList.add('fa-sun');
-    } else {
-      icon.classList.remove('fa-sun');
-      icon.classList.add('fa-moon');
-    }
-    
-    // Save theme preference
-    chrome.storage.sync.set({darkMode: isDarkMode});
+  // Floating button toggle
+  floatingBtn.addEventListener('click', function() {
+    floatingToolbar.classList.toggle('visible');
+    floatingBtn.classList.toggle('active');
   });
 
-  saveNoteBtn.addEventListener('click', function() {
+  // Close floating toolbar when clicking outside
+  document.addEventListener('click', function(event) {
+    if (!floatingBtn.contains(event.target) && !floatingToolbar.contains(event.target)) {
+      floatingToolbar.classList.remove('visible');
+      floatingBtn.classList.remove('active');
+    }
+  });
+
+  // Background color picker
+  backgroundColorPicker.addEventListener('change', function() {
+    const selectedColor = backgroundColorPicker.value;
+    document.body.style.backgroundColor = selectedColor;
+    editor.style.backgroundColor = selectedColor;
+    chrome.storage.sync.set({customBackgroundColor: selectedColor});
+  });
+
+  // Text color picker
+  textColorPicker.addEventListener('change', function() {
+    const selectedColor = textColorPicker.value;
+    document.body.style.color = selectedColor;
+    titleElement.style.color = selectedColor;
+    dateElement.style.color = selectedColor;
+    editor.style.setProperty('color', selectedColor, 'important');
+    chrome.storage.sync.set({customTextColor: selectedColor});
+  });
+
+  // Save as TXT file
+  saveNoteTxtBtn.addEventListener('click', function() {
     const titleText = titleElement.innerText.trim() || 'Untitled';
     const sanitizedTitle = titleText.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-    const noteText = editor.innerText; // Get plain text content
+    const noteText = editor.innerText;
     const fullContent = `${titleText}\n\n${noteText}`;
 
     if (noteText.trim() !== '') {
       const blob = new Blob([fullContent], {type: 'text/plain'});
       const url = URL.createObjectURL(blob);
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const filename = `${sanitizedTitle}_${timestamp}.txt`; // Save as .txt
+      const filename = `${sanitizedTitle}_${timestamp}.txt`;
 
       chrome.downloads.download({
         url: url,
@@ -60,13 +86,62 @@ document.addEventListener('DOMContentLoaded', function() {
         if (chrome.runtime.lastError) {
           console.error(chrome.runtime.lastError.message);
         } else {
-          editor.innerHTML = ''; // Clear the editor
-          titleElement.innerHTML = ''; // Clear the title
+          editor.innerHTML = '';
+          titleElement.innerHTML = '';
         }
       });
     }
   });
 
+  // Save as PDF file (Simple text-based alternative)
+  saveNotePdfBtn.addEventListener('click', function() {
+    const titleText = titleElement.innerText.trim() || 'Untitled';
+    const sanitizedTitle = titleText.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+    const noteText = editor.innerText.trim();
+
+    if (noteText !== '' || titleText !== 'Untitled') {
+      // Create a simple formatted text that can be saved as PDF later
+      const formattedContent = `
+${titleText}
+${'='.repeat(titleText.length)}
+
+Date: ${new Date().toLocaleDateString('en-US', { 
+  weekday: 'long', 
+  year: 'numeric', 
+  month: 'long', 
+  day: 'numeric' 
+})}
+
+${noteText}
+
+---
+Generated by Penna Note Taker
+`;
+
+      const blob = new Blob([formattedContent], {type: 'text/plain'});
+      const url = URL.createObjectURL(blob);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${sanitizedTitle}_${timestamp}.txt`;
+
+      chrome.downloads.download({
+        url: url,
+        filename: filename,
+        saveAs: true
+      }, function(downloadId) {
+        if (chrome.runtime.lastError) {
+          console.error(chrome.runtime.lastError.message);
+        } else {
+          editor.innerHTML = '';
+          titleElement.innerHTML = '';
+          alert('Note saved as formatted text file. You can convert to PDF using any online converter or print to PDF.');
+        }
+      });
+    } else {
+      alert('Please add a title or some content before saving.');
+    }
+  });
+
+  // Text formatting buttons
   alignLeftBtn.addEventListener('click', function() {
     document.execCommand('justifyLeft', false, null);
   });
