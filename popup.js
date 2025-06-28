@@ -13,16 +13,31 @@ document.addEventListener('DOMContentLoaded', function() {
   // Set current date
   dateElement.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
+  // Load saved theme preference
+  chrome.storage.sync.get(['darkMode'], function(result) {
+    if (result.darkMode) {
+      document.body.classList.add('dark-mode');
+      const icon = themeToggle.querySelector('i');
+      icon.classList.remove('fa-moon');
+      icon.classList.add('fa-sun');
+    }
+  });
+
   themeToggle.addEventListener('click', function() {
     document.body.classList.toggle('dark-mode');
     const icon = themeToggle.querySelector('i');
-    if (document.body.classList.contains('dark-mode')) {
+    const isDarkMode = document.body.classList.contains('dark-mode');
+    
+    if (isDarkMode) {
       icon.classList.remove('fa-moon');
       icon.classList.add('fa-sun');
     } else {
       icon.classList.remove('fa-sun');
       icon.classList.add('fa-moon');
     }
+    
+    // Save theme preference
+    chrome.storage.sync.set({darkMode: isDarkMode});
   });
 
   saveNoteBtn.addEventListener('click', function() {
